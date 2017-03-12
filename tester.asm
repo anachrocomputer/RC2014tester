@@ -22,7 +22,7 @@
             defc SPACE=20h
             defc EOS=0
             
-            org 0000h			        ; EPROM (27C512) starts at 0x0000
+            org 0000h           ; EPROM (27C512) starts at 0x0000
 
 RST00:      di                  ; Disable interrupts
             im 1                ; Select interrupt mode 1, jump to 0038h
