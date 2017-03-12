@@ -1,0 +1,2 @@
+stty -F /dev/ttyUSB0 9600 clocal -crtscts
+cat $1 >/dev/ttyUSB0
