@@ -8,7 +8,7 @@ working properly, or even that the RAM is installed in the system.
 So all the serial terminal I/O, EPROM tests and RAM tests must be
 done without using any RAM.
 This precludes the use of the normal subroutine calling mechanism
-(CALL or RST) becuase we cannot use the stack.
+(CALL or RST) because we cannot use the stack.
 
 ## Initialisation
 
@@ -18,7 +18,7 @@ The code then jumps over the Z80 restart locations to address 3Ah.
 
 After jumping, the code initialises the 6850 ACIA.
 It first sends 03h to the control register of the chip (at I/O address
-81h) to cause a Master Reset.
+80h) to cause a Master Reset.
 This is essential for proper start-up of the ACIA.
 Then, it sets the control register for divide-by-64 mode.
 
