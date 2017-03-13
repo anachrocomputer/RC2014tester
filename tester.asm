@@ -101,10 +101,34 @@ loop:       ld hl,hello
             ld hl,ASMPC+6       ; Get a character from the ACIA
             jp t1in_hl
             
+            ld b,a
             ld hl,ASMPC+6       ; Print it in hex              
             jp hex2out_hl
+            ld a,b
             
-            ld b,CR             ; Print CR/LF
+            and 05fh            ; Make upper-case
+            
+            cp 'A'              ; Range check A..Z
+            jp m,notaz
+            cp 'Z'+1
+            jp p,notaz
+            
+            sub 'A'             ; Get into range 0-25
+            sla a               ; Multiply by 2
+
+            ld bc,jmptab        ; BC->jmptab
+            ld l,a              ; HL=A
+            ld h,0
+            add hl,bc           ; HL->jmptab+A
+            ld c,(hl)
+            inc hl
+            ld b,(hl)           ; BC=jump address
+            ld l,c              ; HL=BC
+            ld h,b
+            ld sp,ASMPC+4       ; Load return link
+            jp (hl)             ; Call command subroutine at HL
+
+notaz:      ld b,CR             ; Print CR/LF
             ld hl,ASMPC+6
             jp t1ou_hl
             
@@ -171,20 +195,17 @@ notok:      inc ix              ; Next byte
             ld hl,ASMPC+6
             jp t1ou_hl
             
-            ld hl,(jmptab)
-            ld sp,ASMPC+4
-            jp (hl)
-
             jp loop
             
+; Jump table containing pointers to command subroutines
 jmptab:     defw nosuchcmd      ; A
             defw nosuchcmd      ; B
             defw nosuchcmd      ; c
-            defw nosuchcmd      ; D
+            defw Dcmd           ; D
             defw nosuchcmd      ; E
             defw nosuchcmd      ; F
             defw nosuchcmd      ; G
-            defw nosuchcmd      ; H
+            defw Hcmd           ; H
             defw nosuchcmd      ; I
             defw nosuchcmd      ; J
             defw nosuchcmd      ; K
@@ -216,8 +237,94 @@ nosuchcmd:  ld hl,nosuchmsg
             add hl,sp           ; Effectively ld hl,sp
             jp (hl)             ; Effectively jp (sp)
 
-nosuchmsg:  defm "Command not recognised", CR, LF, EOS
+nosuchmsg:  defm CR,LF,"Command not recognised",CR,LF,EOS
 
+; Dcmd
+; Print hex dump
+; Entry: return link in SP
+; Exit: A, BC, D, HL, IX and IY modified
+Dcmd:       ld hl,ROMBASE       ; Start address (TODO: accept from keyboard)
+
+            ld a,CR             ; CR/LF
+            ld iy,ASMPC+7
+            jp t1ou_iy
+            
+            ld a,LF
+            ld iy,ASMPC+7
+            jp t1ou_iy
+            
+            ld d,16             ; Row counter
+            
+Drow:       ld ix,ASMPC+7       ; Print HL in 4-digit hex
+            jp hex4out_ix
+            
+            ld a,SPACE          ; Print a blank
+            ld iy,ASMPC+7
+            jp t1ou_iy
+            
+            ld b,16             ; Byte counter
+Dhex2:      ld a,(hl)           ; Load one byte
+            ld iy,ASMPC+7
+            jp hex2out_iy       ; Print as two-digit hex
+
+            inc hl
+
+            ld a,SPACE          ; Print a blank
+            ld iy,ASMPC+7
+            jp t1ou_iy
+            
+            djnz Dhex2          ; Go back for next byte
+            
+            ld bc,16
+            and a               ; Clear carry
+            sbc hl,bc           ; HL=HL-16
+            
+            ld b,16             ; Byte counter
+Dhex3:      ld a,(hl)           ; Load one byte again
+            cp SPACE            ; Range check 20h..7eh
+            jp m,noprnt
+            cp 07fh
+            jp p,noprnt
+            jr prntok
+
+noprnt:     ld a,'.'            ; Substitute for non-printables
+prntok:     ld iy,ASMPC+7
+            jp t1ou_iy
+            
+            inc hl
+
+            djnz Dhex3          ; Go back for next byte
+            
+            ld a,CR             ; CR/LF
+            ld iy,ASMPC+7
+            jp t1ou_iy
+            
+            ld a,LF
+            ld iy,ASMPC+7
+            jp t1ou_iy
+            
+            dec d               ; Decrement row counter
+            jr nz,Drow          ; Go back for another row
+
+            ld hl,0             ; Clear HL
+            add hl,sp           ; Effectively ld hl,sp
+            jp (hl)             ; Effectively jp (sp)
+
+; Hcmd
+; Print help message and return
+; Entry: return link in SP
+; Exit: HL and IY modified
+Hcmd:       ld hl,helpmsg
+            ld iy,ASMPC+7
+            jp puts_iy
+            
+            ld hl,0             ; Clear HL
+            add hl,sp           ; Effectively ld hl,sp
+            jp (hl)             ; Effectively jp (sp)
+
+helpmsg:    defm CR,LF,"RC2014 Tester commands:", CR, LF
+            defm "H - Help", CR, LF
+            defm EOS
 
 ; t1ou_hl
 ; Transmit one character via the 6850 ACIA, no stack
@@ -229,6 +336,18 @@ t1ou_hl:    in a,(ACIAS)        ; Read ACIA status register
             ld a,b              ; Move char into A
             out (ACIAD),a       ; Send A to ACIA
             jp (hl)             ; Return via link in HL
+
+; t1ou_ix
+; Transmit one character via the 6850 ACIA, no stack
+; Entry: character in A, return link in IX
+; Exit: A' modified
+t1ou_ix:    ex af,af'           ; Save char in A'
+t1ou3poll:  in a,(ACIAS)        ; Read ACIA status register
+            bit 1,a             ; Check status bit
+            jr z,t1ou3poll      ; Loop and wait if busy
+            ex af,af'           ; Move char back into A
+            out (ACIAD),a       ; Send A to ACIA
+            jp (ix)             ; Return via link in IX
 
 ; t1ou_iy
 ; Transmit one character via the 6850 ACIA, no stack
@@ -320,6 +439,31 @@ h2digit:    add a,30h
             ld iy,ASMPC+7
             jp t1ou_iy          
             jp (hl)             ; Return via link in HL
+
+; hex2out_iy
+; Print A as two-digit hex
+; Entry: A contains number to be printed, return link in HL
+; Exit: A, C, IX modified
+hex2out_iy: ld c,a
+            srl a
+            srl a
+            srl a
+            srl a
+            cp a,10
+            jp m,h7digit
+            add a,7
+h7digit:    add a,30h
+            ld ix,ASMPC+7
+            jp t1ou_ix
+            ld a,c
+            and a,0fh
+            cp a,10
+            jp m,h8digit
+            add a,7
+h8digit:    add a,30h
+            ld ix,ASMPC+7
+            jp t1ou_ix          
+            jp (iy)             ; Return via link in iy
 
 ; hex4out_ix
 ; Print HL as four-digit hex
