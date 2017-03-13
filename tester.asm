@@ -171,8 +171,54 @@ notok:      inc ix              ; Next byte
             ld hl,ASMPC+6
             jp t1ou_hl
             
+            ld hl,(jmptab)
+            ld sp,ASMPC+4
+            jp (hl)
+
             jp loop
             
+jmptab:     defw nosuchcmd      ; A
+            defw nosuchcmd      ; B
+            defw nosuchcmd      ; c
+            defw nosuchcmd      ; D
+            defw nosuchcmd      ; E
+            defw nosuchcmd      ; F
+            defw nosuchcmd      ; G
+            defw nosuchcmd      ; H
+            defw nosuchcmd      ; I
+            defw nosuchcmd      ; J
+            defw nosuchcmd      ; K
+            defw nosuchcmd      ; L
+            defw nosuchcmd      ; M
+            defw nosuchcmd      ; N
+            defw nosuchcmd      ; O
+            defw nosuchcmd      ; P
+            defw nosuchcmd      ; Q
+            defw nosuchcmd      ; R
+            defw nosuchcmd      ; S
+            defw nosuchcmd      ; T
+            defw nosuchcmd      ; U
+            defw nosuchcmd      ; V
+            defw nosuchcmd      ; W
+            defw nosuchcmd      ; X
+            defw nosuchcmd      ; Y
+            defw nosuchcmd      ; Z
+            
+; nosuchcmd
+; Print error message and return
+; Entry: return link in SP
+; Exit: HL and IY modified
+nosuchcmd:  ld hl,nosuchmsg
+            ld iy,ASMPC+7
+            jp puts_iy
+            
+            ld hl,0             ; Clear HL
+            add hl,sp           ; Effectively ld hl,sp
+            jp (hl)             ; Effectively jp (sp)
+
+nosuchmsg:  defm "Command not recognised", CR, LF, EOS
+
+
 ; t1ou_hl
 ; Transmit one character via the 6850 ACIA, no stack
 ; Entry: character in B, return link in HL
@@ -186,12 +232,13 @@ t1ou_hl:    in a,(ACIAS)        ; Read ACIA status register
 
 ; t1ou_iy
 ; Transmit one character via the 6850 ACIA, no stack
-; Entry: character in B, return link in IY
-; Exit: A now holds character, B unchanged
-t1ou_iy:    in a,(ACIAS)        ; Read ACIA status register
+; Entry: character in A, return link in IY
+; Exit: A' modified
+t1ou_iy:    ex af,af'           ; Save char in A'
+t1ou2poll:  in a,(ACIAS)        ; Read ACIA status register
             bit 1,a             ; Check status bit
-            jr z,t1ou_iy        ; Loop and wait if busy
-            ld a,b              ; Move char into A
+            jr z,t1ou2poll      ; Loop and wait if busy
+            ex af,af'           ; Move char back into A
             out (ACIAD),a       ; Send A to ACIA
             jp (iy)             ; Return via link in IY
 
@@ -252,7 +299,7 @@ t1in_hl:    in a,(ACIAS)        ; Read status reg
 ; hex2out_hl
 ; Print A as two-digit hex
 ; Entry: A contains number to be printed, return link in HL
-; Exit: A, B, C, IY modified
+; Exit: A, C, IY modified
 hex2out_hl: ld c,a
             srl a
             srl a
@@ -262,7 +309,6 @@ hex2out_hl: ld c,a
             jp m,h1digit
             add a,7
 h1digit:    add a,30h
-            ld b,a
             ld iy,ASMPC+7
             jp t1ou_iy
             ld a,c
@@ -271,7 +317,6 @@ h1digit:    add a,30h
             jp m,h2digit
             add a,7
 h2digit:    add a,30h
-            ld b,a
             ld iy,ASMPC+7
             jp t1ou_iy          
             jp (hl)             ; Return via link in HL
@@ -279,7 +324,7 @@ h2digit:    add a,30h
 ; hex4out_ix
 ; Print HL as four-digit hex
 ; Entry: HL contains number to be printed, return link in IX
-; Exit: A, B, IY modified
+; Exit: A, IY modified
 hex4out_ix: ld a,h
             srl a
             srl a
@@ -289,7 +334,6 @@ hex4out_ix: ld a,h
             jp m,h3digit
             add a,7
 h3digit:    add a,30h
-            ld b,a
             ld iy,ASMPC+7
             jp t1ou_iy
             ld a,h
@@ -298,7 +342,6 @@ h3digit:    add a,30h
             jp m,h4digit
             add a,7
 h4digit:    add a,30h
-            ld b,a
             ld iy,ASMPC+7
             jp t1ou_iy
             ld a,l              ; And again with the low half
@@ -310,7 +353,6 @@ h4digit:    add a,30h
             jp m,h5digit
             add a,7
 h5digit:    add a,30h
-            ld b,a
             ld iy,ASMPC+7
             jp t1ou_iy
             ld a,l
@@ -319,7 +361,6 @@ h5digit:    add a,30h
             jp m,h6digit
             add a,7
 h6digit:    add a,30h
-            ld b,a
             ld iy,ASMPC+7
             jp t1ou_iy
             jp (ix)             ; Return via link in IX
