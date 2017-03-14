@@ -21,6 +21,7 @@
             defc LF=0Ah
             defc SPACE=20h
             defc EOS=0
+            defc PROMPT='>'
             
             org 0000h           ; EPROM (27C512) starts at 0x0000
 
@@ -94,17 +95,15 @@ setup:      ld hl,signon        ; Print sign-on message
             ld iy,ASMPC+7
             jp puts_iy
             
-loop:       ld hl,hello
+loop:       ld a,PROMPT         ; Print the prompt character
             ld iy,ASMPC+7
-            jp puts_iy
+            jp t1ou_iy
             
             ld hl,ASMPC+6       ; Get a character from the ACIA
             jp t1in_hl
             
-            ld b,a
-            ld hl,ASMPC+6       ; Print it in hex              
-            jp hex2out_hl
-            ld a,b
+            ld iy,ASMPC+7       ; Echo command character
+            jp t1ou_iy
             
             and 05fh            ; Make upper-case
             
@@ -128,81 +127,17 @@ loop:       ld hl,hello
             ld sp,ASMPC+4       ; Load return link
             jp (hl)             ; Call command subroutine at HL
 
-notaz:      ld b,CR             ; Print CR/LF
-            ld hl,ASMPC+6
-            jp t1ou_hl
+notaz:      jp loop
             
-            ld b,LF
-            ld hl,ASMPC+6
-            jp t1ou_hl
-            
-            ld hl,chkmsg        ; Print EPROM checksum message
-            ld iy,ASMPC+7
-            jp puts_iy
-            
-            ld ix,ROMBASE       ; Initialise EPROM pointer
-            ld bc,ROMSIZE       ; Initialise loop counter
-            ld hl,0             ; Checksum accumulates in HL
-            ld de,0             ; Bytes will get loaded into E
-romchk:     ld e,(ix)           ; Load a ROM byte
-            add hl,de           ; Add to total in HL
-            inc ix              ; Next byte
-            dec c               ; Byte counter LO
-            jr nz,romchk        ; Is C zero?
-            djnz romchk         ; Byte counter HI
+signon:     defm  "RC2014 Memory Test and Diagnostics ROM",CR,LF
+            defm  "V1.00 2017-03-08",CR,LF,EOS
 
-            ld ix,ASMPC+7       ; We're done; checksum is in HL
-            jp hex4out_ix
-
-            ld b,CR
-            ld hl,ASMPC+6
-            jp t1ou_hl
-            
-            ld b,LF
-            ld hl,ASMPC+6
-            jp t1ou_hl
-            
-            ld hl,ramsz         ; Print RAM size message
-            ld iy,ASMPC+7
-            jp puts_iy
-            
-            ld ix,RAMBASE       ; Initialise RAM pointer
-            ld bc,RAMSIZE       ; Initialise loop counter
-            ld hl,0             ; HL counts good bytes
-            ld de,0aa55h        ; Two test bytes
-ramchk:     ld (ix),d           ; Store a byte in RAM
-            ld (ix),e           ; Store a byte in RAM
-            ld a,(ix)           ; Read it back
-            cp a,e              ; Read OK?
-            jr nz,notok
-            inc hl              ; One more good byte
-notok:      inc ix              ; Next byte
-            ld a,0              ; Zero in A for comparisons
-            dec bc              ; Byte counter
-            cp a,c              ; Is C zero?
-            jr nz,ramchk
-            cp a,b              ; Is B zero?
-            jr nz,ramchk
-
-            ld ix,ASMPC+7       ; We're done; size is in HL
-            jp hex4out_ix
-
-            ld b,CR             ; CR/LF
-            ld hl,ASMPC+6
-            jp t1ou_hl
-            
-            ld b,LF
-            ld hl,ASMPC+6
-            jp t1ou_hl
-            
-            jp loop
-            
 ; Jump table containing pointers to command subroutines
 jmptab:     defw nosuchcmd      ; A
             defw nosuchcmd      ; B
             defw nosuchcmd      ; c
             defw Dcmd           ; D
-            defw nosuchcmd      ; E
+            defw Ecmd           ; E
             defw nosuchcmd      ; F
             defw nosuchcmd      ; G
             defw Hcmd           ; H
@@ -215,7 +150,7 @@ jmptab:     defw nosuchcmd      ; A
             defw nosuchcmd      ; O
             defw nosuchcmd      ; P
             defw nosuchcmd      ; Q
-            defw nosuchcmd      ; R
+            defw Rcmd           ; R
             defw nosuchcmd      ; S
             defw nosuchcmd      ; T
             defw nosuchcmd      ; U
@@ -310,6 +245,40 @@ prntok:     ld iy,ASMPC+7
             add hl,sp           ; Effectively ld hl,sp
             jp (hl)             ; Effectively jp (sp)
 
+; Ecmd
+
+Ecmd:       ld hl,chkmsg        ; Print EPROM checksum message
+            ld iy,ASMPC+7
+            jp puts_iy
+            
+            ld ix,ROMBASE       ; Initialise EPROM pointer
+            ld bc,ROMSIZE       ; Initialise loop counter
+            ld hl,0             ; Checksum accumulates in HL
+            ld de,0             ; Bytes will get loaded into E
+romchk:     ld e,(ix)           ; Load a ROM byte
+            add hl,de           ; Add to total in HL
+            inc ix              ; Next byte
+            dec c               ; Byte counter LO
+            jr nz,romchk        ; Is C zero?
+            djnz romchk         ; Byte counter HI
+
+            ld ix,ASMPC+7       ; We're done; checksum is in HL
+            jp hex4out_ix
+
+            ld b,CR
+            ld hl,ASMPC+6
+            jp t1ou_hl
+            
+            ld b,LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+
+            ld hl,0             ; Clear HL
+            add hl,sp           ; Effectively ld hl,sp
+            jp (hl)             ; Effectively jp (sp)
+
+chkmsg:     defm  CR,LF,"EPROM checksum is ",EOS
+
 ; Hcmd
 ; Print help message and return
 ; Entry: return link in SP
@@ -322,9 +291,52 @@ Hcmd:       ld hl,helpmsg
             add hl,sp           ; Effectively ld hl,sp
             jp (hl)             ; Effectively jp (sp)
 
-helpmsg:    defm CR,LF,"RC2014 Tester commands:", CR, LF
-            defm "H - Help", CR, LF
+helpmsg:    defm CR,LF,"RC2014 Tester commands:",CR,LF
+            defm "D - Dump",CR,LF
+            defm "E - EPROM test",CR,LF
+            defm "H - Help",CR,LF
+            defm "R - RAM test",CR, LF
             defm EOS
+
+; Rcmd
+Rcmd:       ld hl,ramsz         ; Print RAM size message
+            ld iy,ASMPC+7
+            jp puts_iy
+            
+            ld ix,RAMBASE       ; Initialise RAM pointer
+            ld bc,RAMSIZE       ; Initialise loop counter
+            ld hl,0             ; HL counts good bytes
+            ld de,0aa55h        ; Two test bytes
+ramchk:     ld (ix),d           ; Store a byte in RAM
+            ld (ix),e           ; Store a byte in RAM
+            ld a,(ix)           ; Read it back
+            cp a,e              ; Read OK?
+            jr nz,notok
+            inc hl              ; One more good byte
+notok:      inc ix              ; Next byte
+            ld a,0              ; Zero in A for comparisons
+            dec bc              ; Byte counter
+            cp a,c              ; Is C zero?
+            jr nz,ramchk
+            cp a,b              ; Is B zero?
+            jr nz,ramchk
+
+            ld ix,ASMPC+7       ; We're done; size is in HL
+            jp hex4out_ix
+
+            ld b,CR             ; CR/LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+            
+            ld b,LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+
+            ld hl,0             ; Clear HL
+            add hl,sp           ; Effectively ld hl,sp
+            jp (hl)             ; Effectively jp (sp)
+
+ramsz:      defm  CR,LF,"RAM size is ",EOS
 
 ; t1ou_hl
 ; Transmit one character via the 6850 ACIA, no stack
@@ -509,15 +521,7 @@ h6digit:    add a,30h
             jp t1ou_iy
             jp (ix)             ; Return via link in IX
 
-; Testing assembler directives
-            defb  $42
-            defw  $babe
-;           defl  $deadbeef
-hello:      defm  "Hello, world", CR, LF, EOS
-signon:     defm  "RC2014 Memory Test and Diagnostics ROM", CR, LF
-            defm  "V1.00 2017-03-08", CR, LF, EOS
-chkmsg:     defm  "EPROM checksum is ", EOS
-ramsz:      defm  "RAM size is ", EOS
+; Fill empty EPROM space with $FF and test patterns
             defs  0400h-ASMPC,0ffh
             defw  $0400,$0402,$0404,$0406,$0408,$040A,$040C,$040E
             defw  $0410,$0412,$0414,$0416,$0418,$041A,$041C,$041E
