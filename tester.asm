@@ -324,6 +324,31 @@ notok:      inc ix              ; Next byte
             ld ix,ASMPC+7       ; We're done; size is in HL
             jp hex4out_ix
 
+            ld a,SPACE          ; Print a space
+            ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld ix,RAMBASE       ; Initialise RAM pointer
+            ld bc,RAMSIZE       ; Initialise loop counter
+            ld hl,0             ; HL counts good bytes
+            ld de,055aah        ; Two test bytes
+ramchk2:    ld (ix),d           ; Store a byte in RAM
+            ld (ix),e           ; Store a byte in RAM
+            ld a,(ix)           ; Read it back
+            cp a,e              ; Read OK?
+            jr nz,notok2 
+            inc hl              ; One more good byte
+notok2:     inc ix              ; Next byte
+            ld a,0              ; Zero in A for comparisons
+            dec bc              ; Byte counter
+            cp a,c              ; Is C zero?
+            jr nz,ramchk2
+            cp a,b              ; Is B zero?
+            jr nz,ramchk2
+
+            ld ix,ASMPC+7       ; We're done; size is in HL
+            jp hex4out_ix
+
             ld b,CR             ; CR/LF
             ld hl,ASMPC+6
             jp t1ou_hl
@@ -336,7 +361,9 @@ notok:      inc ix              ; Next byte
             add hl,sp           ; Effectively ld hl,sp
             jp (hl)             ; Effectively jp (sp)
 
-ramsz:      defm  CR,LF,"RAM size is ",EOS
+ramsz:      defm CR,LF
+            defm "Test:     AA55 55AA  asc  dsc",CR,LF
+            defm "RAM size: ",EOS
 
 ; t1ou_hl
 ; Transmit one character via the 6850 ACIA, no stack
@@ -522,11 +549,11 @@ h6digit:    add a,30h
             jp (ix)             ; Return via link in IX
 
 ; Fill empty EPROM space with $FF and test patterns
-            defs  0400h-ASMPC,0ffh
-            defw  $0400,$0402,$0404,$0406,$0408,$040A,$040C,$040E
-            defw  $0410,$0412,$0414,$0416,$0418,$041A,$041C,$041E
-            defw  $0420,$0422,$0424,$0426,$0428,$042A,$042C,$042E
-            defw  $0430,$0432,$0434,$0436,$0438,$043A,$043C,$043E
+            defs  0500h-ASMPC,0ffh
+            defw  $0500,$0502,$0504,$0506,$0508,$050A,$050C,$050E
+            defw  $0510,$0512,$0514,$0516,$0518,$051A,$051C,$051E
+            defw  $0520,$0522,$0524,$0526,$0528,$052A,$052C,$052E
+            defw  $0530,$0532,$0534,$0536,$0538,$053A,$053C,$053E
             defs  0800h-ASMPC,0ffh
             defw  $0800,$0802,$0804,$0806,$0808,$080A,$080C,$080E
             defw  $0810,$0812,$0814,$0816,$0818,$081A,$081C,$081E
