@@ -10,5 +10,5 @@ tester.hex: tester_INIT.bin
 	$(APPMAKE) +hex --org 0 -b tester_INIT.bin -o tester.hex
 #	$(PPZSUM) -ii <tester.hex >/dev/null
 
-tester_INIT.bin: tester.asm cksum.asm
+tester_INIT.bin: tester.asm
 	$(AS) -b -d -s -l tester.asm
