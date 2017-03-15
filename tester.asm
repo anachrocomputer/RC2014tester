@@ -92,6 +92,8 @@ mcinit:     ld a,$03            ; Reset 6850 ACIA
             ld a,$96            ; Initialise ACIA to divide-by-64
             out (ACIAS),a
 
+            ; TODO: initialise all the other RC2014 I/O devices
+            
 setup:      ld hl,signon        ; Print sign-on message
             ld iy,ASMPC+7
             jp puts_iy
@@ -130,11 +132,12 @@ loop:       ld a,PROMPT         ; Print the prompt character
 
 notaz:      jp loop
             
-signon:     defm  "RC2014 Memory Test and Diagnostics ROM",CR,LF
+signon:     defm  CR,LF
+            defm  "RC2014 Memory Test and Diagnostics ROM",CR,LF
             defm  "V1.00 2017-03-08",CR,LF,EOS
 
 ; Jump table containing pointers to command subroutines
-jmptab:     defw nosuchcmd      ; A
+jmptab:     defw Acmd           ; A
             defw nosuchcmd      ; B
             defw nosuchcmd      ; c
             defw Dcmd           ; D
@@ -152,8 +155,8 @@ jmptab:     defw nosuchcmd      ; A
             defw nosuchcmd      ; P
             defw nosuchcmd      ; Q
             defw Rcmd           ; R
-            defw nosuchcmd      ; S
-            defw nosuchcmd      ; T
+            defw Scmd           ; S
+            defw Tcmd           ; T
             defw nosuchcmd      ; U
             defw nosuchcmd      ; V
             defw nosuchcmd      ; W
@@ -175,13 +178,16 @@ nosuchcmd:  ld hl,nosuchmsg
 
 nosuchmsg:  defm CR,LF,"Command not recognised",CR,LF,EOS
 
+Acmd:       ld hl,0ff00h
+            jp dump
+            
 ; Dcmd
 ; Print hex dump
 ; Entry: return link in SP
 ; Exit: A, BC, D, HL, IX and IY modified
 Dcmd:       ld hl,ROMBASE       ; Start address (TODO: accept from keyboard)
 
-            ld a,CR             ; CR/LF
+dump:       ld a,CR             ; CR/LF
             ld iy,ASMPC+7
             jp t1ou_iy
             
@@ -296,7 +302,9 @@ helpmsg:    defm CR,LF,"RC2014 Tester commands:",CR,LF
             defm "D - Dump",CR,LF
             defm "E - EPROM test",CR,LF
             defm "H - Help",CR,LF
-            defm "R - RAM test",CR, LF
+            defm "R - RAM test",CR,LF
+            defm "S - Slow RAM freerun test",CR,LF
+            defm "T - Fast RAM freerun test",CR,LF
             defm EOS
 
 ; Rcmd
@@ -427,6 +435,50 @@ ramsz:      defm CR,LF
             defm "Test:     AA55 55AA  asc  dsc",CR,LF
             defm "RAM size: ",EOS
 
+; Scmd
+; Test RAM by filling with EX (SP),HL and executing
+; Entry: return link in SP
+; Exit: registers modified
+Scmd:       ld d,0E3h           ; Fill all bytes with EX (SP),HL
+            jp freerunram
+
+; Tcmd
+; Test RAM by filling with NOP and executing
+; Entry: return link in SP
+; Exit: registers modified
+Tcmd:       ld d,0              ; Fill all bytes with NOP
+
+freerunram: ld hl,exitmsg       ; Print freerun exit message
+            ld iy,ASMPC+7
+            jp puts_iy
+
+; Store opcode in D into all locations in RAM
+            ld ix,RAMBASE       ; Initialise RAM pointer
+            ld bc,RAMSIZE       ; Initialise loop counter
+            ld hl,0             ; HL counts good bytes
+ramop:      ld (ix),d           ; Store opcode in RAM
+            inc ix              ; Next byte
+            dec bc              ; Decrement byte counter
+            ld a,c              ; Test BC for zero
+            or b
+            jp nz,ramop         ; If non-zero, go back for more
+
+; Copy small routine into last few bytes of RAM
+            ld bc,backend-goback ; Byte counter
+            ld de,RAMTOP-((backend-goback)-1)
+            ld hl,goback        ; Source pointer
+            ldir                ; Block copy
+            
+            ld a,'.'            ; ASCII character to print on each loop
+
+            jp RAMBASE          ; Jump in and never return
+
+goback:     out (ACIAD),a       ; Print a dot each time around
+            jp RAMBASE          ; Jump back to beginning of RAM
+backend:    
+
+exitmsg:    defm CR,LF,"Use RESET button to exit freerun tests",CR,LF,EOS
+
 ; t1ou_hl
 ; Transmit one character via the 6850 ACIA, no stack
 ; Entry: character in B, return link in HL
@@ -465,16 +517,16 @@ t1ou2poll:  in a,(ACIAS)        ; Read ACIA status register
 ; puts_hl
 ; Transmit a string of characters, terminated by zero, no stack
 ; Entry: IY points to string, return link in HL
-; Exit: IY points to zero terminator, A and B changed
+; Exit: IY points to zero terminator, A and A' modified
 puts_hl:    ld a,(iy)           ; Load char pointed to by IY
             cp 0
             jr z,p1done         ; Found zero, end of string
             inc iy
-            ld b,a
+            ex af,af'           ; Save A in A'
 p1txpoll:   in a,(ACIAS)        ; Read ACIA status register
             bit 1,a             ; Check status bit
             jr z,p1txpoll       ; Loop and wait if busy
-            ld a,b              ; Move char into A
+            ex af,af'           ; Recover char into A
             out (ACIAD),a       ; Send A to ACIA
             jr puts_hl
 p1done:     jp (hl)             ; Return via link in HL
@@ -482,16 +534,16 @@ p1done:     jp (hl)             ; Return via link in HL
 ; puts_iy
 ; Transmit a string of characters, terminated by zero, no stack
 ; Entry: HL points to string, return link in IY
-; Exit: HL points to zero terminator, A and B changed
+; Exit: HL points to zero terminator, A and A' modified
 puts_iy:    ld a,(hl)           ; Load char pointed to by HL
             cp 0
             jr z,p_done         ; Found zero, end of string
             inc hl
-            ld b,a
+            ex af,af'           ; Save A in A'
 p_txpoll:   in a,(ACIAS)        ; Read ACIA status register
             bit 1,a             ; Check status bit
             jr z,p_txpoll       ; Loop and wait if busy
-            ld a,b              ; Move char into A
+            ex af,af'           ; Recover char into A
             out (ACIAD),a       ; Send A to ACIA
             jr puts_iy
 p_done:     jp (iy)             ; Return via link in IY
@@ -611,11 +663,11 @@ h6digit:    add a,30h
             jp (ix)             ; Return via link in IX
 
 ; Fill empty EPROM space with $FF and test patterns
-            defs  0500h-ASMPC,0ffh
-            defw  $0500,$0502,$0504,$0506,$0508,$050A,$050C,$050E
-            defw  $0510,$0512,$0514,$0516,$0518,$051A,$051C,$051E
-            defw  $0520,$0522,$0524,$0526,$0528,$052A,$052C,$052E
-            defw  $0530,$0532,$0534,$0536,$0538,$053A,$053C,$053E
+            defs  0600h-ASMPC,0ffh
+            defw  $0600,$0602,$0604,$0606,$0608,$060A,$060C,$060E
+            defw  $0610,$0612,$0614,$0616,$0618,$061A,$061C,$061E
+            defw  $0620,$0622,$0624,$0626,$0628,$062A,$062C,$062E
+            defw  $0630,$0632,$0634,$0636,$0638,$063A,$063C,$063E
             defs  0800h-ASMPC,0ffh
             defw  $0800,$0802,$0804,$0806,$0808,$080A,$080C,$080E
             defw  $0810,$0812,$0814,$0816,$0818,$081A,$081C,$081E
