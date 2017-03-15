@@ -13,6 +13,7 @@
             
             defc RAMBASE=8000h
             defc RAMSIZE=32768
+            defc RAMTOP=0ffffh
             
             defc ACIAS=80h      ; 6850 ACIA status register
             defc ACIAD=81h      ; 6850 ACIA data register
@@ -299,6 +300,9 @@ helpmsg:    defm CR,LF,"RC2014 Tester commands:",CR,LF
             defm EOS
 
 ; Rcmd
+; Test RAM by write/read and marching ones tests
+; Entry: return link in SP
+; Exit: registers modified
 Rcmd:       ld hl,ramsz         ; Print RAM size message
             ld iy,ASMPC+7
             jp puts_iy
@@ -345,6 +349,64 @@ notok2:     inc ix              ; Next byte
             jr nz,ramchk2
             cp a,b              ; Is B zero?
             jr nz,ramchk2
+
+            ld ix,ASMPC+7       ; We're done; size is in HL
+            jp hex4out_ix
+            
+            ld a,SPACE          ; Print a space
+            ld iy,ASMPC+7
+            jp t1ou_iy
+
+; Clear RAM to all zeroes
+            ld ix,RAMBASE       ; Initialise RAM pointer
+            ld bc,RAMSIZE       ; Initialise loop counter
+            ld hl,0             ; HL counts good bytes
+            ld d,0              ; Fill all bytes with zero
+ramfill0:   ld (ix),d           ; Store a zero in RAM
+            inc ix              ; Next byte
+            dec bc              ; Decrement byte counter
+            ld a,c              ; Test BC for zero
+            or b
+            jp nz,ramfill0      ; If non-zero, go back for more
+
+; Ascending marching ones test
+            ld ix,RAMBASE       ; Initialise RAM pointer
+            ld bc,RAMSIZE       ; Initialise loop counter
+            ld hl,0             ; HL counts good bytes
+            ld d,0ffh           ; Holds an FF to overwrite with
+marchasc:   ld a,(ix)           ; Read byte from RAM
+            cp 0                ; Check for zero
+            jr nz,notz1         ; Non-zero means it got overwritten
+            inc hl              ; One more good byte
+notz1:      ld (ix),d           ; Store FF into same byte
+            inc ix              ; Next byte
+            dec bc              ; Decrement byte counter
+            ld a,c              ; Test BC for zero
+            or b
+            jp nz,marchasc      ; If non-zero, go back for more
+
+            ld ix,ASMPC+7       ; We're done; size is in HL
+            jp hex4out_ix
+
+            ld a,SPACE          ; Print a space
+            ld iy,ASMPC+7
+            jp t1ou_iy
+
+; Descending marching ones test
+            ld ix,RAMTOP        ; Initialise RAM pointer
+            ld bc,RAMSIZE       ; Initialise loop counter
+            ld hl,0             ; HL counts good bytes
+            ld d,0              ; Holds a zero to overwrite with
+marchdsc:   ld a,(ix)           ; Read byte from RAM
+            cp 0ffh             ; Check for FF
+            jr nz,notff         ; Non-zero means it got overwritten
+            inc hl              ; One more good byte
+notff:      ld (ix),d           ; Store zero into same byte
+            dec ix              ; Next byte, downwards in memory
+            dec bc              ; Decrement byte counter
+            ld a,c              ; Test BC for zero
+            or b
+            jp nz,marchdsc      ; If non-zero, go back for more
 
             ld ix,ASMPC+7       ; We're done; size is in HL
             jp hex4out_ix
