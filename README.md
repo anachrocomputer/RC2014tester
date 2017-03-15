@@ -25,9 +25,11 @@ Then, it sets the control register for divide-by-64 mode.
 ## Commands
 
 D - hex dump<br>
-H - help<br>
 E - EPROM checksum test<br>
+H - help<br>
 R - RAM test<br>
+S - RAM freerun test, slow (RESET to exit)<br>
+T - RAM freerun test, fast (RESET to exit)<br>
 
 ## The EPROM Checksum
 
