@@ -22,6 +22,13 @@ It first sends 03h to the control register of the chip (at I/O address
 This is essential for proper start-up of the ACIA.
 Then, it sets the control register for divide-by-64 mode.
 
+## Commands
+
+D - hex dump<br>
+H - help<br>
+E - EPROM checksum test<br>
+R - RAM test<br>
+
 ## The EPROM Checksum
 
 The EPROM programmer (an old Stag PP39) reports a checksum when
