@@ -195,9 +195,13 @@ dump:       ld a,CR             ; CR/LF
             ld iy,ASMPC+7
             jp t1ou_iy
             
-            ld d,16             ; Row counter
+D16rows:    ld d,16             ; Row counter
             
-Drow:       ld ix,ASMPC+7       ; Print HL in 4-digit hex
+Drow:       ld a,CR             ; Print CR in case we're looping
+            ld iy,ASMPC+7       ; back from the pager
+            jp t1ou_iy
+            
+            ld ix,ASMPC+7       ; Print HL in 4-digit hex
             jp hex4out_ix
             
             ld a,SPACE          ; Print a blank
@@ -248,9 +252,42 @@ prntok:     ld iy,ASMPC+7
             dec d               ; Decrement row counter
             jr nz,Drow          ; Go back for another row
 
+pager:      ld a,':'            ; Pager prompt
+            ld iy,ASMPC+7
+            jp t1ou_iy
+            
+            ld iy,ASMPC+7       ; Get pager response
+            jp t1in_iy
+            
+            cp SPACE            ; SPACE prints 16 more rows
+            jp z,D16rows
+            
+            cp CR               ; CR prints one more row
+            jp nz,notcr
+            
+            ld d,1              ; D is row counter
+            jp Drow
+            
+notcr:      cp '?'              ; '?' prints help
+            jp nz,nothelp
+            
+            ex de,hl
+            ld hl,pagermsg      ; Print pager help message
+            ld iy,ASMPC+7
+            jp puts_iy
+            ex de,hl
+
+            jp pager
+            
+nothelp:    ld a,CR             ; CR to clear pager prompt
+            ld iy,ASMPC+7
+            jp t1ou_iy
+
             ld hl,0             ; Clear HL
             add hl,sp           ; Effectively ld hl,sp
             jp (hl)             ; Effectively jp (sp)
+            
+pagermsg:   defm CR,"SPACE=next page, CR=next line, q=exit",EOS
 
 ; Ecmd
 
