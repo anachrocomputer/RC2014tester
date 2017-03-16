@@ -272,11 +272,11 @@ romchk:     ld e,(ix)           ; Load a ROM byte
             ld ix,ASMPC+7       ; We're done; checksum is in HL
             jp hex4out_ix
 
-            ld b,CR
+            ld a,CR
             ld hl,ASMPC+6
             jp t1ou_hl
             
-            ld b,LF
+            ld a,LF
             ld hl,ASMPC+6
             jp t1ou_hl
 
@@ -419,11 +419,11 @@ notff:      ld (ix),d           ; Store zero into same byte
             ld ix,ASMPC+7       ; We're done; size is in HL
             jp hex4out_ix
 
-            ld b,CR             ; CR/LF
+            ld a,CR             ; CR/LF
             ld hl,ASMPC+6
             jp t1ou_hl
             
-            ld b,LF
+            ld a,LF
             ld hl,ASMPC+6
             jp t1ou_hl
 
@@ -482,11 +482,12 @@ exitmsg:    defm CR,LF,"Use RESET button to exit freerun tests",CR,LF,EOS
 ; t1ou_hl
 ; Transmit one character via the 6850 ACIA, no stack
 ; Entry: character in B, return link in HL
-; Exit: A now holds character, B unchanged
-t1ou_hl:    in a,(ACIAS)        ; Read ACIA status register
+; Exit: A' modified
+t1ou_hl:    ex af,af'           ; Save char in A'
+t1ou4poll:  in a,(ACIAS)        ; Read ACIA status register
             bit 1,a             ; Check status bit
-            jr z,t1ou_hl        ; Loop and wait if busy
-            ld a,b              ; Move char into A
+            jr z,t1ou4poll      ; Loop and wait if busy
+            ex af,af'           ; Move char back into A
             out (ACIAD),a       ; Send A to ACIA
             jp (hl)             ; Return via link in HL
 
