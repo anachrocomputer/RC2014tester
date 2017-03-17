@@ -302,14 +302,15 @@ Ecmd:       ld hl,chkmsg        ; Print EPROM checksum message
 romchk:     ld e,(ix)           ; Load a ROM byte
             add hl,de           ; Add to total in HL
             inc ix              ; Next byte
-            dec c               ; Byte counter LO
-            jr nz,romchk        ; Is C zero?
-            djnz romchk         ; Byte counter HI
+            dec bc              ; Byte counter
+            ld a,c              ; Test BC for zero
+            or b
+            jr nz,romchk        ; Go back for another byte
 
             ld ix,ASMPC+7       ; We're done; checksum is in HL
             jp hex4out_ix
 
-            ld a,CR
+            ld a,CR             ; Print CR/LF
             ld hl,ASMPC+6
             jp t1ou_hl
             
