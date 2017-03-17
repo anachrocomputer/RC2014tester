@@ -138,14 +138,14 @@ signon:     defm  CR,LF
 
 ; Jump table containing pointers to command subroutines
 jmptab:     defw Acmd           ; A
-            defw nosuchcmd      ; B
+            defw Bcmd           ; B
             defw nosuchcmd      ; c
             defw Dcmd           ; D
             defw Ecmd           ; E
-            defw nosuchcmd      ; F
-            defw nosuchcmd      ; G
+            defw Fcmd           ; F
+            defw Gcmd           ; G
             defw Hcmd           ; H
-            defw nosuchcmd      ; I
+            defw Icmd           ; I
             defw nosuchcmd      ; J
             defw nosuchcmd      ; K
             defw nosuchcmd      ; L
@@ -179,6 +179,9 @@ nosuchcmd:  ld hl,nosuchmsg
 nosuchmsg:  defm CR,LF,"Command not recognised",CR,LF,EOS
 
 Acmd:       ld hl,0ff00h
+            jp dump
+            
+Bcmd:       ld hl,08000h
             jp dump
             
 ; Dcmd
@@ -324,6 +327,102 @@ romchk:     ld e,(ix)           ; Load a ROM byte
 
 chkmsg:     defm  CR,LF,"EPROM checksum is ",EOS
 
+Gcmd:       ld hl,feedface
+            jr fill
+            
+feedface:   defb 0feh,0edh,0fah,0ceh
+
+Icmd:       ld hl,01ff0h
+            jr fill
+            
+; Fcmd
+; Fill RAM with $DEADBEEF
+; Entry: return link in SP
+; Exit: HL and IY modified
+Fcmd:       ld hl,deadbeef      ; Source pointer
+fill:       ld de,RAMBASE       ; Destination pointer
+            ld bc,4             ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0004h ; Destination pointer
+            ld bc,0004h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0008h ; Destination pointer
+            ld bc,0008h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0010h ; Destination pointer
+            ld bc,0010h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0020h ; Destination pointer
+            ld bc,0020h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0040h ; Destination pointer
+            ld bc,0040h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0080h ; Destination pointer
+            ld bc,0080h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0100h ; Destination pointer
+            ld bc,0100h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0200h ; Destination pointer
+            ld bc,0200h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0400h ; Destination pointer
+            ld bc,0400h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0800h ; Destination pointer
+            ld bc,0800h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+1000h ; Destination pointer
+            ld bc,1000h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+2000h ; Destination pointer
+            ld bc,2000h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+4000h ; Destination pointer
+            ld bc,4000h         ; Byte counter
+            ldir                ; Block copy
+
+            ld a,CR             ; Print CR/LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+            
+            ld a,LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+
+            ld hl,0             ; Clear HL
+            add hl,sp           ; Effectively ld hl,sp
+            jp (hl)             ; Effectively jp (sp)
+
+deadbeef:   defb 0deh,0adh,0beh,0efh
+
 ; Hcmd
 ; Print help message and return
 ; Entry: return link in SP
@@ -339,6 +438,7 @@ Hcmd:       ld hl,helpmsg
 helpmsg:    defm CR,LF,"RC2014 Tester commands:",CR,LF
             defm "D - Dump",CR,LF
             defm "E - EPROM test",CR,LF
+            defm "F - fill RAM",CR,LF
             defm "H - Help",CR,LF
             defm "R - RAM test",CR,LF
             defm "S - Slow RAM freerun test",CR,LF
@@ -698,11 +798,6 @@ h6digit:    add a,30h
             jp (ix)             ; Return via link in IX
 
 ; Fill empty EPROM space with $FF and test patterns
-            defs  0600h-ASMPC,0ffh
-            defw  $0600,$0602,$0604,$0606,$0608,$060A,$060C,$060E
-            defw  $0610,$0612,$0614,$0616,$0618,$061A,$061C,$061E
-            defw  $0620,$0622,$0624,$0626,$0628,$062A,$062C,$062E
-            defw  $0630,$0632,$0634,$0636,$0638,$063A,$063C,$063E
             defs  0800h-ASMPC,0ffh
             defw  $0800,$0802,$0804,$0806,$0808,$080A,$080C,$080E
             defw  $0810,$0812,$0814,$0816,$0818,$081A,$081C,$081E
