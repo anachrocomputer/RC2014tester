@@ -363,11 +363,9 @@ ramchk:     ld (ix),d           ; Store a byte in RAM
             jr nz,notok
             inc hl              ; One more good byte
 notok:      inc ix              ; Next byte
-            ld a,0              ; Zero in A for comparisons
             dec bc              ; Byte counter
-            cp a,c              ; Is C zero?
-            jr nz,ramchk
-            cp a,b              ; Is B zero?
+            ld a,c              ; Test BC for zero
+            or b
             jr nz,ramchk
 
             ld ix,ASMPC+7       ; We're done; size is in HL
@@ -388,11 +386,9 @@ ramchk2:    ld (ix),d           ; Store a byte in RAM
             jr nz,notok2 
             inc hl              ; One more good byte
 notok2:     inc ix              ; Next byte
-            ld a,0              ; Zero in A for comparisons
             dec bc              ; Byte counter
-            cp a,c              ; Is C zero?
-            jr nz,ramchk2
-            cp a,b              ; Is B zero?
+            ld a,c              ; Test BC for zero
+            or b
             jr nz,ramchk2
 
             ld ix,ASMPC+7       ; We're done; size is in HL
