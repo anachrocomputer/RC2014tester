@@ -137,8 +137,8 @@ signon:     defm  CR,LF
             defm  "V1.00 2017-03-08",CR,LF,EOS
 
 ; Jump table containing pointers to command subroutines
-jmptab:     defw Acmd           ; A
-            defw Bcmd           ; B
+jmptab:     defw nosuchcmd      ; A
+            defw nosuchcmd      ; B
             defw nosuchcmd      ; c
             defw Dcmd           ; D
             defw Ecmd           ; E
@@ -178,19 +178,20 @@ nosuchcmd:  ld hl,nosuchmsg
 
 nosuchmsg:  defm CR,LF,"Command not recognised",CR,LF,EOS
 
-Acmd:       ld hl,0ff00h
-            jp dump
-            
-Bcmd:       ld hl,08000h
-            jp dump
             
 ; Dcmd
 ; Print hex dump
 ; Entry: return link in SP
 ; Exit: A, BC, D, HL, IX and IY modified
-Dcmd:       ld hl,ROMBASE       ; Start address (TODO: accept from keyboard)
+Dcmd:       ld a,SPACE          ; Print a SPACE
+            ld iy,ASMPC+7
+            jp t1ou_iy
 
-dump:       ld a,CR             ; CR/LF
+            ld iy,ASMPC+7       ; Get four hex digits into HL
+            jp hex4in_iy
+            jp Derr             ; Error return
+
+            ld a,CR             ; CR/LF
             ld iy,ASMPC+7
             jp t1ou_iy
             
@@ -286,10 +287,24 @@ nothelp:    ld a,CR             ; CR to clear pager prompt
             ld iy,ASMPC+7
             jp t1ou_iy
 
-            ld hl,0             ; Clear HL
+Dret:       ld hl,0             ; Clear HL
             add hl,sp           ; Effectively ld hl,sp
             jp (hl)             ; Effectively jp (sp)
             
+Derr:       ld a,'?'            ; Print '?' in case of input error
+            ld hl,ASMPC+6
+            jp t1ou_hl
+
+            ld a,CR             ; Print CR/LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+            
+            ld a,LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+
+            jp Dret
+
 pagermsg:   defm CR,"SPACE=next page, CR=next line, q=exit",EOS
 
 ; Ecmd
@@ -702,6 +717,134 @@ t1in_hl:    in a,(ACIAS)        ; Read status reg
             jr z,t1in_hl
             in a,(ACIAD)        ; Get the character from the data reg
             jp (hl)             ; Return via link in HL
+
+; hex4in_iy
+; Read 4-digit hex into HL
+; Entry: return link in IY
+; Exit: value in HL, A modified
+hex4in_iy:  ld hl,0             ; Clear HL initially
+getch1:     in a,(ACIAS)        ; Read status reg
+            bit 0,a
+            jr z,getch1
+            in a,(ACIAD)        ; Get the character from the data reg
+            out (ACIAD),a       ; Echo received character
+
+            cp a,'0'
+            jp m,not4hex
+            
+            cp a,'9'+1
+            jp m,hex109
+            
+            and 05fh            ; Make upper-case
+
+            cp 'A'
+            jp m,not4hex
+            
+            cp 'F'+1
+            jp m,hex1af
+            jp not4hex
+
+hex1af:     sub 'A'-10
+            jr hex1dig
+
+hex109:     sub '0'             ; Char was 0-9
+hex1dig:    sla a
+            sla a
+            sla a
+            sla a
+            ld h,a              ; Save in H
+
+getch2:     in a,(ACIAS)        ; Read status reg
+            bit 0,a
+            jr z,getch2
+            in a,(ACIAD)        ; Get the character from the data reg
+            out (ACIAD),a       ; Echo received character
+
+            cp a,'0'
+            jp m,not4hex
+            
+            cp a,'9'+1
+            jp m,hex209
+            
+            and 05fh            ; Make upper-case
+
+            cp 'A'
+            jp m,not4hex
+            
+            cp 'F'+1
+            jp m,hex2af
+            jr not4hex
+
+hex2af:     sub 'A'-10
+            jr hex2dig
+
+hex209:     sub '0'             ; Char was 0-9
+hex2dig:    or h
+            ld h,a              ; Save in H
+
+getch3:     in a,(ACIAS)        ; Read status reg
+            bit 0,a
+            jr z,getch3
+            in a,(ACIAD)        ; Get the character from the data reg
+            out (ACIAD),a       ; Echo received character
+
+            cp a,'0'
+            jp m,not4hex
+            
+            cp a,'9'+1
+            jp m,hex309
+            
+            and 05fh            ; Make upper-case
+
+            cp 'A'
+            jp m,not4hex
+            
+            cp 'F'+1
+            jp m,hex3af
+            jr not4hex
+
+hex3af:     sub 'A'-10
+            jr hex3dig
+
+hex309:     sub '0'             ; Char was 0-9
+hex3dig:    sla a 
+            sla a
+            sla a
+            sla a
+            ld l,a              ; Save in L
+
+getch4:     in a,(ACIAS)        ; Read status reg
+            bit 0,a
+            jr z,getch4
+            in a,(ACIAD)        ; Get the character from the data reg
+            out (ACIAD),a       ; Echo received character
+
+            cp a,'0'
+            jp m,not4hex
+            
+            cp a,'9'+1
+            jp m,hex409
+            
+            and 05fh            ; Make upper-case
+
+            cp 'A'
+            jp m,not4hex
+            
+            cp 'F'+1
+            jp m,hex4af
+            jr not4hex
+
+hex4af:     sub 'A'-10
+            jr hex4dig
+
+hex409:     sub '0'             ; Char was 0-9
+hex4dig:    or l
+            ld l,a              ; Save in L
+
+            inc iy              ; Non-error return 3 bytes later
+            inc iy
+            inc iy
+not4hex:    jp (iy)             ; Return via link in IY
 
 ; hex2out_hl
 ; Print A as two-digit hex
