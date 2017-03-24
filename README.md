@@ -26,7 +26,9 @@ Then, it sets the control register for divide-by-64 mode.
 
 D - hex dump<br>
 E - EPROM checksum test<br>
+F - fill RAM<br>
 H - help<br>
+J - joystick test (press key to exit)<br>
 R - RAM test<br>
 S - RAM freerun test, slow (RESET to exit)<br>
 T - RAM freerun test, fast (RESET to exit)<br>

@@ -15,6 +15,10 @@
             defc RAMSIZE=32768
             defc RAMTOP=0ffffh
             
+            defc DIGIN=00h      ; Digital input port
+            defc DIGOUT=00h     ; Digital output port
+            defc JOY1=01h       ; Joystick ports
+            defc JOY2=02h
             defc ACIAS=80h      ; 6850 ACIA status register
             defc ACIAD=81h      ; 6850 ACIA data register
             
@@ -146,7 +150,7 @@ jmptab:     defw nosuchcmd      ; A
             defw Gcmd           ; G
             defw Hcmd           ; H
             defw Icmd           ; I
-            defw nosuchcmd      ; J
+            defw Jcmd           ; J
             defw nosuchcmd      ; K
             defw nosuchcmd      ; L
             defw nosuchcmd      ; M
@@ -453,11 +457,141 @@ Hcmd:       ld hl,helpmsg
 helpmsg:    defm CR,LF,"RC2014 Tester commands:",CR,LF
             defm "D - Dump",CR,LF
             defm "E - EPROM test",CR,LF
-            defm "F - fill RAM",CR,LF
+            defm "F - Fill RAM",CR,LF
             defm "H - Help",CR,LF
+            defm "J - Joystick test",CR,LF
             defm "R - RAM test",CR,LF
             defm "S - Slow RAM freerun test",CR,LF
             defm "T - Fast RAM freerun test",CR,LF
+            defm EOS
+
+; Jcmd
+; Test joystick port
+; Entry: return link in SP
+; Exit: HL and IY modified
+Jcmd:       ld hl,joystckmsg
+            ld iy,ASMPC+7
+            jp puts_iy
+            
+Jloop:      in a,(JOY1)         ; Read joystick port
+            ld b,a              ; Copy result into B
+
+            ld a,'.'
+            bit 0,b             ; Check bit for UP
+            jr z,notup1
+            ld a,'U'
+notup1:     ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld a,'.'
+            bit 1,b             ; Check bit for DOWN
+            jr z,notdown1
+            ld a,'D'
+notdown1:   ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld a,'.'
+            bit 2,b             ; Check bit for LEFT
+            jr z,notleft1
+            ld a,'L'
+notleft1:   ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld a,'.'
+            bit 3,b             ; Check bit for RIGHT
+            jr z,notright1
+            ld a,'R'
+notright1:  ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld a,'.'
+            bit 4,b             ; Check bit for FIRE1
+            jr z,notfire11
+            ld a,'F'     
+notfire11:  ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld a,'.'
+            bit 5,b             ; Check bit for FIRE2
+            jr z,notfire21
+            ld a,'F'
+notfire21:  ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld a,SPACE          ; Print space
+            ld iy,ASMPC+7
+            jp t1ou_iy
+            
+            in a,(JOY2)         ; Read joystick port
+            ld b,a              ; Copy result into B
+
+            ld a,'.'
+            bit 0,b             ; Check bit for UP
+            jr z,notup2
+            ld a,'U'
+notup2:     ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld a,'.'
+            bit 1,b             ; Check bit for DOWN
+            jr z,notdown2
+            ld a,'D'
+notdown2:   ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld a,'.'
+            bit 2,b             ; Check bit for LEFT
+            jr z,notleft2
+            ld a,'L'
+notleft2:   ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld a,'.'
+            bit 3,b             ; Check bit for RIGHT
+            jr z,notright2
+            ld a,'R'
+notright2:  ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld a,'.'
+            bit 4,b             ; Check bit for FIRE1
+            jr z,notfire12
+            ld a,'F'     
+notfire12:  ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld a,'.'
+            bit 5,b             ; Check bit for FIRE2
+            jr z,notfire22
+            ld a,'F'
+notfire22:  ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld b,255            ; Small time delay
+Jdelay:     nop
+            nop
+            djnz Jdelay
+            
+            ld a,CR             ; Print just CR
+            ld iy,ASMPC+7
+            jp t1ou_iy
+            
+            in a,(ACIAS)        ; Read ACIA status register
+            bit 0,a             ; Check Rx status bit
+            jp z,Jloop          ; Loop if no key pressed
+
+            in a,(ACIAD)        ; Get the character from the data reg
+
+            ld a,LF             ; Print just LF
+            ld iy,ASMPC+7
+            jp t1ou_iy
+            
+            ld hl,0             ; Clear HL
+            add hl,sp           ; Effectively ld hl,sp
+            jp (hl)             ; Effectively jp (sp)
+
+joystckmsg: defm CR,LF," JOY1   JOY2"
+            defm CR,LF,"------ ------",CR,LF
             defm EOS
 
 ; Rcmd
@@ -941,11 +1075,11 @@ h6digit:    add a,30h
             jp (ix)             ; Return via link in IX
 
 ; Fill empty EPROM space with $FF and test patterns
-            defs  0800h-ASMPC,0ffh
-            defw  $0800,$0802,$0804,$0806,$0808,$080A,$080C,$080E
-            defw  $0810,$0812,$0814,$0816,$0818,$081A,$081C,$081E
-            defw  $0820,$0822,$0824,$0826,$0828,$082A,$082C,$082E
-            defw  $0830,$0832,$0834,$0836,$0838,$083A,$083C,$083E
+            defs  0900h-ASMPC,0ffh
+            defw  $0900,$0902,$0904,$0906,$0908,$090A,$090C,$090E
+            defw  $0910,$0912,$0914,$0916,$0918,$091A,$091C,$091E
+            defw  $0920,$0922,$0924,$0926,$0928,$092A,$092C,$092E
+            defw  $0930,$0932,$0934,$0936,$0938,$093A,$093C,$093E
             defs  1000h-ASMPC,0ffh
             defw  $1000,$1002,$1004,$1006,$1008,$100A,$100C,$100E
             defw  $1010,$1012,$1014,$1016,$1018,$101A,$101C,$101E
