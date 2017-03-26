@@ -60,6 +60,49 @@ Data bus shorts or bad connections can cause the data storage tests
 to fail, while address bus problems will cause the addressing tests to
 fail.
 
+## Building from Source
+
+The hex output file, in Intel hex format, is provided for users who
+wish to simply burn an EPROM and run the code.
+This file is 'tester.hex' and will occupy 8k of space in the EPROM.
+
+To build the software from source, you will need 'z80asm',
+which is a Z80 assembler that accepts a slightly non-standard syntax
+for certain directives.
+It's installed as part of the usual RC2014 development system,
+from the 'z88dk' SDK (originally written for use with the Sinclair Z88).
+There's a 'Makefile' that will invoke the assembler and linker in the
+correct way to generate 'tester.hex'.
+
+There's a small shell script, 'topp39',
+which I use to transfer the hex file
+to my Stag PP39 EPROM programmer, via a USB-to-serial converter.
+I also have a utility called 'ppzsum' that can generate EPROM checksums
+from the hex file.
+This is a non-standard utility,
+so the call is commented-out in the 'Makefile'.
+
+I intend to add an automatic checksum generation and insertion routine,
+coded in Python.
+This will allow the EPROM to contain its own checksum, so that the
+test code can verify itself automatically.
+
+## Assembler Directives
+
+The 'z80asm' assembler accepts directives that are different from those
+usually found in Z80 assemblers.
+It uses ORG as usual.
+In place of EQU, it uses DEFC; and in place of DB it has DEFM.
+Similarly, DW is replaced by DEFW.
+There are SECTION and MODULE directives, whose function is not clear.
+
+As mentioned below, I use a subroutine calling convention that places
+the return address in a register, not on the stack.
+This means that I frequently need to refer to the Z80's program counter,
+or the current assembly address.
+'z80asm' uses ASMPC for this, whereas most Z80 assemblers use the
+symbol '$'.
+
 ## Subroutine Calling Convention
 
 The subroutines in this code are called by loading a 16-bit return
