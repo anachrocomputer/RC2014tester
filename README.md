@@ -28,6 +28,7 @@ D - hex dump<br>
 E - EPROM checksum test<br>
 F - fill RAM, 2000h-0ffffh<br>
 H - help<br>
+I - input from a given I/O address
 J - joystick test (press key to exit)<br>
 R - RAM test, 8000h-0ffffh<br>
 S - RAM freerun test, 8000h-0ffffh, slow (RESET to exit)<br>

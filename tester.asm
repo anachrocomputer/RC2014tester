@@ -149,7 +149,7 @@ jmptab:     defw nosuchcmd      ; A
             defw Fcmd           ; F
             defw nosuchcmd      ; G
             defw Hcmd           ; H
-            defw nosuchcmd      ; I
+            defw Icmd           ; I
             defw Jcmd           ; J
             defw nosuchcmd      ; K
             defw nosuchcmd      ; L
@@ -397,12 +397,47 @@ helpmsg:    defm CR,LF,"RC2014 Tester commands:",CR,LF
             defm "E - EPROM test",CR,LF
             defm "F - Fill RAM",CR,LF
             defm "H - Help",CR,LF
+            defm "I - Input",CR,LF
             defm "J - Joystick test",CR,LF
             defm "R - RAM test",CR,LF
             defm "S - Slow RAM freerun test",CR,LF
             defm "T - Fast RAM freerun test",CR,LF
             defm "Z - Fast RAM fill using LDIR",CR,LF
             defm EOS
+
+; Icmd
+; Input port test
+; Entry: return link in SP
+; Exit: HL and IY modified
+Icmd:       ld a,SPACE          ; Print a space
+            ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld iy,ASMPC+7       ; Get two hex digits into L
+            jp hex2in_iy
+            jp Derr             ; Error return (reuse 'D' error logic)
+            ld c,l              ; Use C to hold I/O address we'll read
+            
+            ld a,':'            ; Print a separator
+            ld iy,ASMPC+7
+            jp t1ou_iy
+
+            in a,(c)            ; Do the actual input operation
+
+            ld iy,ASMPC+7
+            jp hex2out_iy       ; Print as two-digit hex
+
+            ld a,CR             ; Print CR/LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+            
+            ld a,LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+
+            ld hl,0             ; Clear HL
+            add hl,sp           ; Effectively ld hl,sp
+            jp (hl)             ; Effectively jp (sp)
 
 ; Jcmd
 ; Test joystick port
