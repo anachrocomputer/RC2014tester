@@ -147,9 +147,9 @@ jmptab:     defw nosuchcmd      ; A
             defw Dcmd           ; D
             defw Ecmd           ; E
             defw Fcmd           ; F
-            defw Gcmd           ; G
+            defw nosuchcmd      ; G
             defw Hcmd           ; H
-            defw Icmd           ; I
+            defw nosuchcmd      ; I
             defw Jcmd           ; J
             defw nosuchcmd      ; K
             defw nosuchcmd      ; L
@@ -165,8 +165,8 @@ jmptab:     defw nosuchcmd      ; A
             defw nosuchcmd      ; V
             defw nosuchcmd      ; W
             defw nosuchcmd      ; X
-            defw nosuchcmd      ; Y
-            defw nosuchcmd      ; Z
+            defw Ycmd           ; Y
+            defw Zcmd           ; Z
             
 ; nosuchcmd
 ; Print error message and return
@@ -346,88 +346,28 @@ romchk:     ld e,(ix)           ; Load a ROM byte
 
 chkmsg:     defm  CR,LF,"EPROM checksum is ",EOS
 
-Gcmd:       ld hl,feedface
-            jr fill
-            
-feedface:   defb 0feh,0edh,0fah,0ceh
-
-Icmd:       ld hl,01ff0h
-            jr fill
-            
 ; Fcmd
-; Fill RAM with $DEADBEEF
+; Fill all RAM space with a given byte
 ; Entry: return link in SP
 ; Exit: HL and IY modified
-Fcmd:       ld hl,deadbeef      ; Source pointer
-fill:       ld de,RAMBASE       ; Destination pointer
-            ld bc,4             ; Byte counter
-            ldir                ; Block copy
+Fcmd:       ld a,SPACE          ; Print a space
+            ld iy,ASMPC+7
+            jp t1ou_iy
 
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+0004h ; Destination pointer
-            ld bc,0004h         ; Byte counter
-            ldir                ; Block copy
+            ld iy,ASMPC+7       ; Get two hex digits into L
+            jp hex2in_iy
+            jp Derr             ; Error return (reuse 'D' error logic)
+            ld d,l              ; Use D to hold byte we're going to fill with
 
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+0008h ; Destination pointer
-            ld bc,0008h         ; Byte counter
-            ldir                ; Block copy
-
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+0010h ; Destination pointer
-            ld bc,0010h         ; Byte counter
-            ldir                ; Block copy
-
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+0020h ; Destination pointer
-            ld bc,0020h         ; Byte counter
-            ldir                ; Block copy
-
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+0040h ; Destination pointer
-            ld bc,0040h         ; Byte counter
-            ldir                ; Block copy
-
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+0080h ; Destination pointer
-            ld bc,0080h         ; Byte counter
-            ldir                ; Block copy
-
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+0100h ; Destination pointer
-            ld bc,0100h         ; Byte counter
-            ldir                ; Block copy
-
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+0200h ; Destination pointer
-            ld bc,0200h         ; Byte counter
-            ldir                ; Block copy
-
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+0400h ; Destination pointer
-            ld bc,0400h         ; Byte counter
-            ldir                ; Block copy
-
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+0800h ; Destination pointer
-            ld bc,0800h         ; Byte counter
-            ldir                ; Block copy
-
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+1000h ; Destination pointer
-            ld bc,1000h         ; Byte counter
-            ldir                ; Block copy
-
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+2000h ; Destination pointer
-            ld bc,2000h         ; Byte counter
-            ldir                ; Block copy
-
-            ld hl,RAMBASE       ; Source pointer
-            ld de,RAMBASE+4000h ; Destination pointer
-            ld bc,4000h         ; Byte counter
-            ldir                ; Block copy
-
+            ld hl,2000h         ; Start of RAM space (just above EPROM)
+            ld bc,(56 * 1024)   ; Fill 56k bytes
+fillb:      ld (hl),d           ; Store byte from D into RAM
+            inc hl              ; Next byte
+            dec bc              ; Decrement byte counter
+            ld a,c              ; Test BC for zero
+            or b
+            jp nz,fillb         ; If non-zero, go back for more
+            
             ld a,CR             ; Print CR/LF
             ld hl,ASMPC+6
             jp t1ou_hl
@@ -439,8 +379,6 @@ fill:       ld de,RAMBASE       ; Destination pointer
             ld hl,0             ; Clear HL
             add hl,sp           ; Effectively ld hl,sp
             jp (hl)             ; Effectively jp (sp)
-
-deadbeef:   defb 0deh,0adh,0beh,0efh
 
 ; Hcmd
 ; Print help message and return
@@ -463,6 +401,7 @@ helpmsg:    defm CR,LF,"RC2014 Tester commands:",CR,LF
             defm "R - RAM test",CR,LF
             defm "S - Slow RAM freerun test",CR,LF
             defm "T - Fast RAM freerun test",CR,LF
+            defm "Z - Fast RAM fill using LDIR",CR,LF
             defm EOS
 
 ; Jcmd
@@ -648,28 +587,28 @@ notok2:     inc ix              ; Next byte
             ld iy,ASMPC+7
             jp t1ou_iy
 
-; Clear RAM to all zeroes
+; Clear RAM to all AA
             ld ix,RAMBASE       ; Initialise RAM pointer
             ld bc,RAMSIZE       ; Initialise loop counter
             ld hl,0             ; HL counts good bytes
-            ld d,0              ; Fill all bytes with zero
-ramfill0:   ld (ix),d           ; Store a zero in RAM
+            ld d,0aah           ; Fill all bytes with AA
+ramfillaa:  ld (ix),d           ; Store a zero in RAM
             inc ix              ; Next byte
             dec bc              ; Decrement byte counter
             ld a,c              ; Test BC for zero
             or b
-            jp nz,ramfill0      ; If non-zero, go back for more
+            jp nz,ramfillaa     ; If non-zero, go back for more
 
 ; Ascending marching ones test
             ld ix,RAMBASE       ; Initialise RAM pointer
             ld bc,RAMSIZE       ; Initialise loop counter
             ld hl,0             ; HL counts good bytes
-            ld d,0ffh           ; Holds an FF to overwrite with
+            ld d,055h           ; Holds 55 to overwrite with
 marchasc:   ld a,(ix)           ; Read byte from RAM
-            cp 0                ; Check for zero
-            jr nz,notz1         ; Non-zero means it got overwritten
+            cp 0aah             ; Check for AA
+            jr nz,notaa         ; Non-zero means it got overwritten
             inc hl              ; One more good byte
-notz1:      ld (ix),d           ; Store FF into same byte
+notaa:      ld (ix),d           ; Store 55 into same byte
             inc ix              ; Next byte
             dec bc              ; Decrement byte counter
             ld a,c              ; Test BC for zero
@@ -689,10 +628,10 @@ notz1:      ld (ix),d           ; Store FF into same byte
             ld hl,0             ; HL counts good bytes
             ld d,0              ; Holds a zero to overwrite with
 marchdsc:   ld a,(ix)           ; Read byte from RAM
-            cp 0ffh             ; Check for FF
-            jr nz,notff         ; Non-zero means it got overwritten
+            cp 055h             ; Check for 55
+            jr nz,not55         ; Non-zero means it got overwritten
             inc hl              ; One more good byte
-notff:      ld (ix),d           ; Store zero into same byte
+not55:      ld (ix),d           ; Store zero into same byte
             dec ix              ; Next byte, downwards in memory
             dec bc              ; Decrement byte counter
             ld a,c              ; Test BC for zero
@@ -761,6 +700,99 @@ goback:     out (ACIAD),a       ; Print a dot each time around
 backend:    
 
 exitmsg:    defm CR,LF,"Use RESET button to exit freerun tests",CR,LF,EOS
+
+Ycmd:       ld hl,feedface
+            jp fill
+            
+feedface:   defb 0feh,0edh,0fah,0ceh
+
+; Zcmd
+; Fill RAM $8000-$FFFF with $DEADBEEF
+; Entry: return link in SP
+; Exit: HL and IY modified
+Zcmd:       ld hl,deadbeef      ; Source pointer
+fill:       ld de,RAMBASE       ; Destination pointer
+            ld bc,4             ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0004h ; Destination pointer
+            ld bc,0004h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0008h ; Destination pointer
+            ld bc,0008h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0010h ; Destination pointer
+            ld bc,0010h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0020h ; Destination pointer
+            ld bc,0020h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0040h ; Destination pointer
+            ld bc,0040h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0080h ; Destination pointer
+            ld bc,0080h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0100h ; Destination pointer
+            ld bc,0100h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0200h ; Destination pointer
+            ld bc,0200h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0400h ; Destination pointer
+            ld bc,0400h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+0800h ; Destination pointer
+            ld bc,0800h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+1000h ; Destination pointer
+            ld bc,1000h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+2000h ; Destination pointer
+            ld bc,2000h         ; Byte counter
+            ldir                ; Block copy
+
+            ld hl,RAMBASE       ; Source pointer
+            ld de,RAMBASE+4000h ; Destination pointer
+            ld bc,4000h         ; Byte counter
+            ldir                ; Block copy
+
+            ld a,CR             ; Print CR/LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+            
+            ld a,LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+
+            ld hl,0             ; Clear HL
+            add hl,sp           ; Effectively ld hl,sp
+            jp (hl)             ; Effectively jp (sp)
+
+deadbeef:   defb 0deh,0adh,0beh,0efh
 
 ; t1ou_hl
 ; Transmit one character via the 6850 ACIA, no stack
@@ -916,6 +948,7 @@ hex209:     sub '0'             ; Char was 0-9
 hex2dig:    or h
             ld h,a              ; Save in H
 
+hex2in_iy:                      ; Read just two hex digits, into L
 getch3:     in a,(ACIAS)        ; Read status reg
             bit 0,a
             jr z,getch3
