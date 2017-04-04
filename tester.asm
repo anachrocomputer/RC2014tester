@@ -155,7 +155,7 @@ jmptab:     defw nosuchcmd      ; A
             defw nosuchcmd      ; L
             defw nosuchcmd      ; M
             defw nosuchcmd      ; N
-            defw nosuchcmd      ; O
+            defw Ocmd           ; O
             defw nosuchcmd      ; P
             defw nosuchcmd      ; Q
             defw Rcmd           ; R
@@ -399,6 +399,7 @@ helpmsg:    defm CR,LF,"RC2014 Tester commands:",CR,LF
             defm "H - Help",CR,LF
             defm "I - Input",CR,LF
             defm "J - Joystick test",CR,LF
+            defm "O - Output",CR,LF
             defm "R - RAM test",CR,LF
             defm "S - Slow RAM freerun test",CR,LF
             defm "T - Fast RAM freerun test",CR,LF
@@ -567,6 +568,42 @@ Jdelay:     nop
 joystckmsg: defm CR,LF," JOY1   JOY2"
             defm CR,LF,"------ ------",CR,LF
             defm EOS
+
+; Ocmd
+; Output to an I/O port address
+; Entry: return link in SP
+; Exit: registers modified
+Ocmd:       ld a,SPACE          ; Print a space
+            ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld iy,ASMPC+7       ; Get two hex digits into L
+            jp hex2in_iy
+            jp Derr             ; Error return (reuse 'D' error logic)
+            ld c,l              ; Use C to hold I/O address we'll write
+            
+            ld a,':'            ; Print a separator
+            ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld iy,ASMPC+7       ; Get two hex digits into L
+            jp hex2in_iy
+            jp Derr             ; Error return (reuse 'D' error logic)
+            ld a,l              ; Byte to output must be in A
+
+            out (c),a           ; Do the actual output operation
+
+            ld a,CR             ; Print CR/LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+            
+            ld a,LF
+            ld hl,ASMPC+6
+            jp t1ou_hl
+
+            ld hl,0             ; Clear HL
+            add hl,sp           ; Effectively ld hl,sp
+            jp (hl)             ; Effectively jp (sp)
 
 ; Rcmd
 ; Test RAM by write/read and marching ones tests
@@ -1143,11 +1180,11 @@ h6digit:    add a,30h
             jp (ix)             ; Return via link in IX
 
 ; Fill empty EPROM space with $FF and test patterns
-            defs  0900h-ASMPC,0ffh
-            defw  $0900,$0902,$0904,$0906,$0908,$090A,$090C,$090E
-            defw  $0910,$0912,$0914,$0916,$0918,$091A,$091C,$091E
-            defw  $0920,$0922,$0924,$0926,$0928,$092A,$092C,$092E
-            defw  $0930,$0932,$0934,$0936,$0938,$093A,$093C,$093E
+            defs  0A00h-ASMPC,0ffh
+            defw  $0A00,$0A02,$0A04,$0A06,$0A08,$0A0A,$0A0C,$0A0E
+            defw  $0A10,$0A12,$0A14,$0A16,$0A18,$0A1A,$0A1C,$0A1E
+            defw  $0A20,$0A22,$0A24,$0A26,$0A28,$0A2A,$0A2C,$0A2E
+            defw  $0A30,$0A32,$0A34,$0A36,$0A38,$0A3A,$0A3C,$0A3E
             defs  1000h-ASMPC,0ffh
             defw  $1000,$1002,$1004,$1006,$1008,$100A,$100C,$100E
             defw  $1010,$1012,$1014,$1016,$1018,$101A,$101C,$101E
