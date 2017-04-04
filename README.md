@@ -26,12 +26,13 @@ Then, it sets the control register for divide-by-64 mode.
 
 D - hex dump<br>
 E - EPROM checksum test<br>
-F - fill RAM<br>
+F - fill RAM, 2000h-0ffffh<br>
 H - help<br>
 J - joystick test (press key to exit)<br>
-R - RAM test<br>
-S - RAM freerun test, slow (RESET to exit)<br>
-T - RAM freerun test, fast (RESET to exit)<br>
+R - RAM test, 8000h-0ffffh<br>
+S - RAM freerun test, 8000h-0ffffh, slow (RESET to exit)<br>
+T - RAM freerun test, 8000h-0ffffh, fast (RESET to exit)<br>
+Z - fill RAM 8000h-0ffffh by LDIR copying
 
 ## The EPROM Checksum
 
