@@ -19,8 +19,8 @@
             defc DIGOUT=00h     ; Digital output port
             defc JOY1=01h       ; Joystick ports
             defc JOY2=02h
-            defc ACIAS=80h      ; 6850 ACIA status register
-            defc ACIAD=81h      ; 6850 ACIA data register
+            defc ACIAS=80h      ; 6850 ACIA status register 80h-0BEh
+            defc ACIAD=81h      ; 6850 ACIA data register   81h-0BFh
             
             defc CR=0Dh
             defc LF=0Ah
@@ -161,8 +161,8 @@ jmptab:     defw nosuchcmd      ; A
             defw Rcmd           ; R
             defw Scmd           ; S
             defw Tcmd           ; T
-            defw nosuchcmd      ; U
-            defw nosuchcmd      ; V
+            defw Ucmd           ; U
+            defw Vcmd           ; V
             defw nosuchcmd      ; W
             defw nosuchcmd      ; X
             defw Ycmd           ; Y
@@ -403,6 +403,8 @@ helpmsg:    defm CR,LF,"RC2014 Tester commands:",CR,LF
             defm "R - RAM test",CR,LF
             defm "S - Slow RAM freerun test",CR,LF
             defm "T - Fast RAM freerun test",CR,LF
+            defm "U - Scope loop on OUT",CR,LF
+            defm "V - Scope loop on IN",CR,LF
             defm "Z - Fast RAM fill using LDIR",CR,LF
             defm EOS
 
@@ -731,15 +733,15 @@ ramsz:      defm CR,LF
 
 ; Scmd
 ; Test RAM by filling with EX (SP),HL and executing
-; Entry: return link in SP
-; Exit: registers modified
+; Entry: return link in SP (unused)
+; Exit: via RESET
 Scmd:       ld d,0E3h           ; Fill all bytes with EX (SP),HL
             jp freerunram
 
 ; Tcmd
 ; Test RAM by filling with NOP and executing
-; Entry: return link in SP
-; Exit: registers modified
+; Entry: return link in SP (unused)
+; Exit: via RESET
 Tcmd:       ld d,0              ; Fill all bytes with NOP
 
 freerunram: ld hl,exitmsg       ; Print freerun exit message
@@ -772,6 +774,58 @@ goback:     out (ACIAD),a       ; Print a dot each time around
 backend:    
 
 exitmsg:    defm CR,LF,"Use RESET button to exit freerun tests",CR,LF,EOS
+
+; Ucmd
+; Scope loop on OUT instruction
+; Entry: return link in SP (unused)
+; Exit: via RESET
+Ucmd:       ld a,SPACE          ; Print a space
+            ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld iy,ASMPC+7       ; Get two hex digits into L
+            jp hex2in_iy
+            jp Derr             ; Error return (reuse 'D' error logic)
+            ld c,l              ; Use C to hold I/O address we'll write
+            
+            ld a,':'            ; Print a separator            
+            ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld iy,ASMPC+7       ; Get two hex digits into L
+            jp hex2in_iy
+            jp Derr             ; Error return (reuse 'D' error logic)
+            ld b,l              ; Save byte to output in B
+
+            ld hl,Uexitmsg      ; Print scope loop exit message
+            ld iy,ASMPC+7
+            jp puts_iy
+
+            ld a,b              ; Byte to output must be in A
+Uloop:      out (c),a           ; Do the actual output operation
+            jp Uloop
+
+Uexitmsg:   defm CR,LF,"Use RESET button to exit scope loops",CR,LF,EOS
+
+; Vcmd          
+; Scope loop on IN instruction
+; Entry: return link in SP (unused)
+; Exit: via RESET
+Vcmd:       ld a,SPACE          ; Print a space
+            ld iy,ASMPC+7
+            jp t1ou_iy
+
+            ld iy,ASMPC+7       ; Get two hex digits into L
+            jp hex2in_iy
+            jp Derr             ; Error return (reuse 'D' error logic)
+            ld c,l              ; Use C to hold I/O address we'll read
+            
+            ld hl,Uexitmsg      ; Print scope loop exit message
+            ld iy,ASMPC+7
+            jp puts_iy
+
+Vloop:      in a,(c)            ; Do the actual input operation
+            jp Vloop
 
 Ycmd:       ld hl,feedface
             jp fill

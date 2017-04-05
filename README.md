@@ -34,7 +34,9 @@ O - Output a byte to a given I/O address<br>
 R - RAM test, 8000h-0ffffh<br>
 S - RAM freerun test, 8000h-0ffffh, slow (RESET to exit)<br>
 T - RAM freerun test, 8000h-0ffffh, fast (RESET to exit)<br>
-Z - fill RAM 8000h-0ffffh by LDIR copying
+U - Scope loop on OUT (C),A (RESET to exit)<br>
+V - Scope loop on IN A,(C) (RESET to exit)<br>
+Z - fill RAM 8000h-0ffffh by LDIR copying<br>
 
 ## The EPROM Checksum
 
@@ -62,6 +64,21 @@ as separate memory locations.
 Data bus shorts or bad connections can cause the data storage tests
 to fail, while address bus problems will cause the addressing tests to
 fail.
+
+## Scope Loops
+
+When testing hardware with a non-storage scope
+(e.g. a traditional analog CRT scope),
+it's often useful to make a tight loop of just a couple of instructions
+that access the hardware in question.
+The 'U' and 'V' commands do this for I/O locations,
+writing and reading (respectively).
+Even when using tools such as a logic analyser, it may still be useful
+to examine a minimal loop that will generate signals such as Chip Select.
+
+To prevent the loop generating unnecessary I/O cycles,
+there is no check for a keypress to exit.
+Use the RESET button to exit the scope loops.
 
 ## Building from Source
 
