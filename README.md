@@ -1,4 +1,7 @@
-# RC2014 Test and Diagnostics EPROM
+![Static Badge](https://img.shields.io/badge/CPU-Z80-green "CPU:Z80")
+![Static Badge](https://img.shields.io/badge/BOARD-RC2014-green "BOARD:RC2014")
+
+# RC2014 Test and Diagnostics EPROM #
 
 This Z80 assembly-language program will run on an RC2014 system
 (either Mini or full-size version) and perform several diagnostic tests
@@ -10,7 +13,7 @@ done without using any RAM.
 This precludes the use of the normal subroutine calling mechanism
 (CALL or RST) because we cannot use the stack.
 
-## Initialisation
+## Initialisation ##
 
 The code disables interrupts, selects Interrupt Mode 1, and
 initialises the stack pointer.
@@ -22,7 +25,7 @@ It first sends 03h to the control register of the chip (at I/O address
 This is essential for proper start-up of the ACIA.
 Then, it sets the control register for divide-by-64 mode.
 
-## Commands
+## Commands ##
 
 D - hex dump<br>
 E - EPROM checksum test<br>
@@ -38,7 +41,7 @@ U - Scope loop on OUT (C),A (RESET to exit)<br>
 V - Scope loop on IN A,(C) (RESET to exit)<br>
 Z - fill RAM 8000h-0ffffh by LDIR copying<br>
 
-## The EPROM Checksum
+## The EPROM Checksum ##
 
 The EPROM programmer (an old Stag PP39) reports a checksum when
 it accepts a hex file over the serial port.
@@ -53,7 +56,7 @@ However, it is sufficient to verify that the Z80 CPU can read the EPROM.
 By careful coding of some data areas in the EPROM, we can also be
 reasonably sure that the EPROM addressing is OK.
 
-## The RAM Tests
+## The RAM Tests ##
 
 The main function of the EPROM is to test the RAM in the RC2014.
 We need to test two things: data storage and correct addressing.
@@ -65,7 +68,7 @@ Data bus shorts or bad connections can cause the data storage tests
 to fail, while address bus problems will cause the addressing tests to
 fail.
 
-## Scope Loops
+## Scope Loops ##
 
 When testing hardware with a non-storage scope
 (e.g. a traditional analog CRT scope),
@@ -80,7 +83,7 @@ To prevent the loop generating unnecessary I/O cycles,
 there is no check for a keypress to exit.
 Use the RESET button to exit the scope loops.
 
-## Building from Source
+## Building from Source ##
 
 The hex output file, in Intel hex format, is provided for users who
 wish to simply burn an EPROM and run the code.
@@ -107,7 +110,7 @@ coded in Python.
 This will allow the EPROM to contain its own checksum, so that the
 test code can verify itself automatically.
 
-## Assembler Directives
+## Assembler Directives ##
 
 The 'z80asm' assembler accepts directives that are different from those
 usually found in Z80 assemblers.
@@ -123,7 +126,7 @@ or the current assembly address.
 'z80asm' uses ASMPC for this, whereas most Z80 assemblers use the
 symbol '$'.
 
-## Subroutine Calling Convention
+## Subroutine Calling Convention ##
 
 The subroutines in this code are called by loading a 16-bit return
 address and then jumping.
@@ -135,3 +138,4 @@ Some subroutines are duplicated in the code,
 with different registers used as the return link.
 This allows some flexibility when choosing whether to use, say HL as a
 parameter register or as the return link.
+
